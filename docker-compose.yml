@@ -12,6 +12,8 @@ services:
       - /app/.next
     environment:
       - NODE_ENV=development
+      - HOSTNAME=0.0.0.0
+    command: pnpm dev --hostname 0.0.0.0
     restart: always
 
   backend:
@@ -25,7 +27,7 @@ services:
       - ./backend:/app
       - /app/node_modules
     env_file:
-      - ./backend/.env.example # Usar temporalmente la plantilla de variables de entorno (o .env si existe)
+      - ./backend/.env
     environment:
       - NODE_ENV=development
       - PORT=5000
