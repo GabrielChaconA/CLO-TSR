@@ -12,6 +12,8 @@ const PORT = process.env.PORT || 5000
 app.use(cors())
 app.use(express.json())
 
+import usersRoutes from './routes/users.routes';
+
 // Ruta de prueba
 app.get("/health", (req, res) => {
   res.json({
@@ -20,6 +22,9 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString()
   })
 })
+
+// Rutas API
+app.use("/api/users", usersRoutes);
 
 // Iniciar servidor
 app.listen(PORT, () => {

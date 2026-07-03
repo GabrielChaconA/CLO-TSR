@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { User, Edit, LogOut, MapPin, Package, Palette, Plus } from "lucide-react"
 import { Navbar } from "@/components/navbar"
@@ -8,11 +8,6 @@ import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-
-const mockUser = {
-  name: "Juan Pérez",
-  email: "juan.perez@email.com",
-}
 
 const mockDesigns = [
   { id: "d1", name: "Mi Dragón Custom", date: "15 Feb 2026", status: "Publicado" },
@@ -26,15 +21,76 @@ const mockOrders = [
   { id: "#WL-2024-003", date: "12 Feb 2026", total: 1250, status: "Procesando" },
 ]
 
-const mockAddresses = [
-  { id: "a1", label: "Casa", address: "Av. Principal 123, Col. Centro, CDMX 06000" },
-  { id: "a2", label: "Oficina", address: "Calle Reforma 456, Piso 3, CDMX 06600" },
-]
-
 export default function PerfilPage() {
+  const [profile, setProfile] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
   const [isEditing, setIsEditing] = useState(false)
-  const [name, setName] = useState(mockUser.name)
-  const [email, setEmail] = useState(mockUser.email)
+  const [nombre, setNombre] = useState("")
+  const [apellido, setApellido] = useState("")
+  
+  // State for new address
+  const [isAddingAddress, setIsAddingAddress] = useState(false)
+  const [newAddress, setNewAddress] = useState({
+    etiqueta: "", calle: "", ciudad: "", estado: "", codigoPostal: ""
+  })
+
+  const fetchProfile = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/users/profile')
+      if (res.ok) {
+        const data = await res.json()
+        setProfile(data)
+        setNombre(data.nombre)
+        setApellido(data.apellido)
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchProfile()
+  }, [])
+
+  const handleSaveProfile = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/users/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, apellido })
+      })
+      if (res.ok) {
+        setIsEditing(false)
+        fetchProfile() // reload fresh data
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error)
+    }
+  }
+
+  const handleSaveAddress = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/users/addresses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAddress)
+      })
+      if (res.ok) {
+        setIsAddingAddress(false)
+        setNewAddress({ etiqueta: "", calle: "", ciudad: "", estado: "", codigoPostal: "" })
+        fetchProfile() // reload to get new address
+      }
+    } catch (error) {
+      console.error('Error saving address:', error)
+    }
+  }
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Cargando perfil...</div>
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -53,13 +109,15 @@ export default function PerfilPage() {
                   {isEditing ? (
                     <div className="mt-4 w-full space-y-3">
                       <Input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        value={nombre}
+                        onChange={(e) => setNombre(e.target.value)}
+                        placeholder="Nombre"
                         className="rounded-xl border-neutral-300 text-center"
                       />
                       <Input
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        value={apellido}
+                        onChange={(e) => setApellido(e.target.value)}
+                        placeholder="Apellido"
                         className="rounded-xl border-neutral-300 text-center"
                       />
                       <div className="flex gap-2">
@@ -71,7 +129,7 @@ export default function PerfilPage() {
                           Cancelar
                         </Button>
                         <Button
-                          onClick={() => setIsEditing(false)}
+                          onClick={handleSaveProfile}
                           className="flex-1 rounded-full bg-neutral-900 text-white hover:bg-neutral-800"
                         >
                           Guardar
@@ -80,8 +138,8 @@ export default function PerfilPage() {
                     </div>
                   ) : (
                     <>
-                      <h2 className="mt-4 text-xl font-semibold text-neutral-900">{name}</h2>
-                      <p className="text-sm text-neutral-500">{email}</p>
+                      <h2 className="mt-4 text-xl font-semibold text-neutral-900">{profile?.nombre} {profile?.apellido}</h2>
+                      <p className="text-sm text-neutral-500">{profile?.email}</p>
                       <Button
                         onClick={() => setIsEditing(true)}
                         variant="outline"
@@ -203,20 +261,39 @@ export default function PerfilPage() {
                   <MapPin className="h-5 w-5" />
                   Direcciones
                 </CardTitle>
-                <Button variant="outline" size="sm" className="gap-2 rounded-full">
-                  <Plus className="h-4 w-4" />
-                  Agregar
-                </Button>
+                {!isAddingAddress && (
+                  <Button onClick={() => setIsAddingAddress(true)} variant="outline" size="sm" className="gap-2 rounded-full">
+                    <Plus className="h-4 w-4" />
+                    Agregar
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
+                {isAddingAddress && (
+                  <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-4 space-y-3">
+                    <h4 className="font-medium">Nueva Dirección</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input placeholder="Etiqueta (Ej. Casa)" value={newAddress.etiqueta} onChange={e => setNewAddress({...newAddress, etiqueta: e.target.value})} />
+                      <Input placeholder="Calle y número" value={newAddress.calle} onChange={e => setNewAddress({...newAddress, calle: e.target.value})} />
+                      <Input placeholder="Ciudad" value={newAddress.ciudad} onChange={e => setNewAddress({...newAddress, ciudad: e.target.value})} />
+                      <Input placeholder="Estado" value={newAddress.estado} onChange={e => setNewAddress({...newAddress, estado: e.target.value})} />
+                      <Input placeholder="Código Postal" value={newAddress.codigoPostal} onChange={e => setNewAddress({...newAddress, codigoPostal: e.target.value})} />
+                    </div>
+                    <div className="flex gap-2 justify-end mt-2">
+                      <Button variant="outline" onClick={() => setIsAddingAddress(false)}>Cancelar</Button>
+                      <Button onClick={handleSaveAddress}>Guardar Dirección</Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {mockAddresses.map((addr) => (
+                  {profile?.addresses?.map((addr: any) => (
                     <div
                       key={addr.id}
                       className="rounded-xl border border-neutral-200 bg-neutral-50 p-4"
                     >
-                      <h4 className="font-medium text-neutral-900">{addr.label}</h4>
-                      <p className="mt-1 text-sm text-neutral-600">{addr.address}</p>
+                      <h4 className="font-medium text-neutral-900">{addr.etiqueta}</h4>
+                      <p className="mt-1 text-sm text-neutral-600">{addr.calle}, {addr.ciudad}, {addr.estado} {addr.codigoPostal}</p>
                       <div className="mt-3 flex gap-2">
                         <Button variant="outline" size="sm" className="rounded-full text-xs">
                           Editar
@@ -231,6 +308,9 @@ export default function PerfilPage() {
                       </div>
                     </div>
                   ))}
+                  {profile?.addresses?.length === 0 && !isAddingAddress && (
+                    <p className="text-sm text-neutral-500">No tienes direcciones guardadas.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
